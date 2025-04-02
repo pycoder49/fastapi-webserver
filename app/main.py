@@ -3,6 +3,8 @@ from typing import Optional
 from fastapi import FastAPI, Response, status, HTTPException
 from fastapi.params import Body
 from pydantic import BaseModel
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 app = FastAPI()
 
@@ -32,8 +34,20 @@ Starting the webserver
 class Post(BaseModel):
     title: str
     content: str
-    published: bool = True
-    rating: Optional[int] = None
+
+
+try:
+    connection = psycopg2.connect(
+        host='localhost',
+        database='fastapi',
+        user='postgres',
+        password='aryan',
+        cursor_factory=RealDictCursor)
+    cursor = connection.cursor()
+    print("Database connection successful")
+except Exception as error:
+    print("Database connection failed")
+    print("Error: ", error)
 
 
 my_posts = [
@@ -50,6 +64,7 @@ my_posts = [
 ]
 
 
+# default path
 @app.get("/")
 async def root():
     return {"message": "Hello, welcome to my api"}
