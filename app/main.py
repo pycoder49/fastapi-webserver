@@ -5,6 +5,7 @@ from fastapi.params import Body
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import time
 
 app = FastAPI()
 
@@ -34,34 +35,43 @@ Starting the webserver
 class Post(BaseModel):
     title: str
     content: str
+    published: bool = True
 
 
-try:
-    connection = psycopg2.connect(
-        host='localhost',
-        database='fastapi',
-        user='postgres',
-        password='aryan',
-        cursor_factory=RealDictCursor)
-    cursor = connection.cursor()
-    print("Database connection successful")
-except Exception as error:
-    print("Database connection failed")
-    print("Error: ", error)
+while True:
+    try:
+        connection = psycopg2.connect(
+            host='localhost',
+            database='fastapi',
+            user='postgres',
+            password='aryan',
+            cursor_factory=RealDictCursor)
+        cursor = connection.cursor()
+        print("Database connection successful")
+        break
+    except Exception as error:
+        print("Database connection failed")
+        print("Error: ", error)
+        time.sleep(2)
 
 
-my_posts = [
-    {
-        "title": "post 1 title",
-        "content": "post 1 content",
-        "id": 1
-    },
-    {
-        "title": "cotton candy",
-        "content": "condy content",
-        "id": 2
-    }
-]
+# my_posts = [
+#     {
+#         "title": "post 1 title",
+#         "content": "post 1 content",
+#         "id": 1
+#     },
+#     {
+#         "title": "cotton candy",
+#         "content": "condy content",
+#         "id": 2
+#     }
+# ]
+
+"""
+Database name:  fastapi
+Table name:     fastapi_posts
+"""
 
 
 # default path
@@ -73,49 +83,50 @@ async def root():
 # gets all posts
 @app.get("/posts")
 def get_posts():
-    return {"posts": my_posts}
+    posts = cursor.execute("""SELECT * FROM fastapi_posts""")
+    posts = cursor.fetchall()
+    print(posts)
+    return {"posts": posts}
 
 
 # creates a new post
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
 def create_post(post: Post):
-    post_dict = post.dict()
-    post_dict["id"] = randrange(0, 10000000)
-    print(post_dict)
-    my_posts.append(post_dict)
-    return {"data": my_posts}
+    cursor.execute("""INSERT INTO fastapi_posts (title, content, published) VALUES (%s, %s, %s) RETURNING *""",
+                   (post.title, post.content, post.published))
+    new_post = cursor.fetchone()
+    connection.commit()
+    print(new_post)
+    return {"data": new_post}
 
 
 # retrieves a single post given a id
 @app.get("/posts/{id}")
 def get_post(id: int, response: Response):
-    for post in my_posts:
-        if post["id"] == id:
-            return {"post": post}
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Post with id {id} not found")
+    cursor.execute("""SELECT * FROM fastapi_posts WHERE id=%s""", (str(id)))
+    retrieved_post = cursor.fetchone()
+    if not retrieved_post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"No post with id {id} was found")
+    return {"post": retrieved_post}
 
 
 # deleting a post
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
-    for i, post in enumerate(my_posts):
-        if post["id"] == id:
-            del my_posts[i]
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Post with id {id} not found")
+
+    cursor.execute("""DELETE FROM fastapi_posts WHERE id=%s RETURNING *""", (str(id)))
+    deleted_post = cursor.fetchone()
+    connection.commit()
+
+    if not deleted_post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Post with id {id} not found")
+    return {"Deleted post": deleted_post}
 
 
 # updating a post
 @app.put("/posts/{id}")
 def update_post(id: int, post: Post):
-
-    for i, entry in enumerate(my_posts):
-        if entry["id"] == id:
-            post_dict = post.dict()
-            post_dict["id"] = id
-            my_posts[i] = post_dict
-            return {"message": "updated post"}
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                         detail=f"Post with id {id} not found")
