@@ -1,12 +1,18 @@
 from random import randrange
 from typing import Optional
-from fastapi import FastAPI, Response, status, HTTPException
+from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
+from sqlalchemy.orm import Session
 
+# directory imports
+from .database import engine, get_db
+from . import models
+
+models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 """
@@ -30,6 +36,7 @@ Starting the webserver
     uvicorn main:app --reload
 """
 
+#TODO: move the post shecma to it's own file to avoid clutter
 
 # defining a schema
 class Post(BaseModel):
@@ -54,7 +61,6 @@ while True:
         print("Error: ", error)
         time.sleep(2)
 
-
 # my_posts = [
 #     {
 #         "title": "post 1 title",
@@ -73,6 +79,24 @@ Database name:  fastapi
 Table name:     fastapi_posts
 """
 
+"""
+A view of how ORM differs from regular SQL in python code:
+
+@app.get("/sql")
+def test_posts(db: Session = Depends(get_deb)):
+    posts = db.query(models.Post).all()
+    return {"data": posts}
+
+
+# gets all posts
+@app.get("/posts")
+def get_posts():
+    posts = cursor.execute(\"""SELECT * FROM fastapi_posts\""")
+    posts = cursor.fetchall()
+    print(posts)
+    return {"posts": posts}
+"""
+
 
 # default path
 @app.get("/")
@@ -80,31 +104,44 @@ async def root():
     return {"message": "Hello, welcome to my api"}
 
 
+@app.get("/sql")
+def test_posts(db: Session = Depends(get_db)):
+    posts = db.query(models.Post).all()
+    return {"data": posts}
+
+
 # gets all posts
 @app.get("/posts")
-def get_posts():
-    posts = cursor.execute("""SELECT * FROM fastapi_posts""")
-    posts = cursor.fetchall()
-    print(posts)
-    return {"posts": posts}
+def get_posts(db: Session = Depends(get_db)):
+    # posts = cursor.execute("""SELECT * FROM fastapi_posts""")
+    # posts = cursor.fetchall()
+    # print(posts)
+    posts = db.query(models.Post).all()
+    return {"data": posts}
 
 
 # creates a new post
 @app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post):
-    cursor.execute("""INSERT INTO fastapi_posts (title, content, published) VALUES (%s, %s, %s) RETURNING *""",
-                   (post.title, post.content, post.published))
-    new_post = cursor.fetchone()
-    connection.commit()
-    print(new_post)
+def create_post(post: Post, db: Session = Depends(get_db)):
+    # cursor.execute("""INSERT INTO fastapi_posts (title, content, published) VALUES (%s, %s, %s) RETURNING *""",
+    #                (post.title, post.content, post.published))
+    # new_post = cursor.fetchone()
+    # connection.commit()
+
+    new_post = models.Post(**post.dict())  # this will unpack the dictionary for us
+    db.add(new_post)
+    db.commit()
+    db.refresh(new_post)
     return {"data": new_post}
 
 
 # retrieves a single post given a id
 @app.get("/posts/{id}")
-def get_post(id: int, response: Response):
-    cursor.execute("""SELECT * FROM fastapi_posts WHERE id=%s""", (str(id)))
-    retrieved_post = cursor.fetchone()
+def get_post(id: int, db: Session = Depends(get_db)):
+    # cursor.execute("""SELECT * FROM fastapi_posts WHERE id=%s""", (str(id)))
+    # retrieved_post = cursor.fetchone()
+    retrieved_post = db.query(models.Post).filter(models.Post.id == id).first()
+
     if not retrieved_post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"No post with id {id} was found")
@@ -113,20 +150,34 @@ def get_post(id: int, response: Response):
 
 # deleting a post
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(id: int):
+def delete_post(id: int, db: Session = Depends(get_db)):
+    # cursor.execute("""DELETE FROM fastapi_posts WHERE id=%s RETURNING *""", (str(id)))
+    # deleted_post = cursor.fetchone()
+    # connection.commit()
+    post = db.query(models.Post).filter(models.Post.id == id)  # saving it as a query
 
-    cursor.execute("""DELETE FROM fastapi_posts WHERE id=%s RETURNING *""", (str(id)))
-    deleted_post = cursor.fetchone()
-    connection.commit()
-
-    if not deleted_post:
+    if post.first() is None:    # run the query and check if it exists
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {id} not found")
-    return {"Deleted post": deleted_post}
+    # if post does exist
+    post.delete(synchronize_session=False)  # this is to prevent any stale entries from update or delete to
+                                            # linger around until the session ends (after committing)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # updating a post
 @app.put("/posts/{id}")
-def update_post(id: int, post: Post):
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                        detail=f"Post with id {id} not found")
+def update_post(id: int, post: Post, db: Session = Depends(get_db)):
+    # cursor.execute("""UPDATE fastapi_posts SET title=%s, content=%s, published=%s WHERE id=%s RETURNING *""",
+    #                (post.title, post.content, post.published, str(id)))
+    # updated_post = cursor.fetchone()
+    # connection.commit()
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    db_post = post_query.first()
+    if db_post is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Post with id {id} not found")
+    post_query.update(post.dict(), synchronize_session=False)
+    db.commit()
+    return {"Updated post": post_query.first()}
