@@ -1,5 +1,5 @@
 from random import randrange
-from typing import Optional
+from typing import Optional, List
 from fastapi import FastAPI, Response, status, HTTPException, Depends
 from fastapi.params import Body
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 # directory imports
 from .database import engine, get_db
-from . import models
+from . import models, schemas
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
@@ -35,15 +35,6 @@ Starting the webserver
     uvicorn <file name without .py>:<fast api object name> in the terminal
     uvicorn main:app --reload
 """
-
-#TODO: move the post shecma to it's own file to avoid clutter
-
-# defining a schema
-class Post(BaseModel):
-    title: str
-    content: str
-    published: bool = True
-
 
 while True:
     try:
@@ -97,6 +88,7 @@ def get_posts():
     return {"posts": posts}
 """
 
+# TODO: Add user functionalities (i.e. create account, login, make post, etc)
 
 # default path
 @app.get("/")
@@ -104,25 +96,19 @@ async def root():
     return {"message": "Hello, welcome to my api"}
 
 
-@app.get("/sql")
-def test_posts(db: Session = Depends(get_db)):
-    posts = db.query(models.Post).all()
-    return {"data": posts}
-
-
 # gets all posts
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.PostResponse])
 def get_posts(db: Session = Depends(get_db)):
     # posts = cursor.execute("""SELECT * FROM fastapi_posts""")
     # posts = cursor.fetchall()
     # print(posts)
     posts = db.query(models.Post).all()
-    return {"data": posts}
+    return posts
 
 
 # creates a new post
-@app.post("/posts", status_code=status.HTTP_201_CREATED)
-def create_post(post: Post, db: Session = Depends(get_db)):
+@app.post("/posts", status_code=status.HTTP_201_CREATED, response_model=schemas.PostResponse)
+def create_post(post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""INSERT INTO fastapi_posts (title, content, published) VALUES (%s, %s, %s) RETURNING *""",
     #                (post.title, post.content, post.published))
     # new_post = cursor.fetchone()
@@ -132,11 +118,11 @@ def create_post(post: Post, db: Session = Depends(get_db)):
     db.add(new_post)
     db.commit()
     db.refresh(new_post)
-    return {"data": new_post}
+    return new_post
 
 
 # retrieves a single post given a id
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.PostResponse)
 def get_post(id: int, db: Session = Depends(get_db)):
     # cursor.execute("""SELECT * FROM fastapi_posts WHERE id=%s""", (str(id)))
     # retrieved_post = cursor.fetchone()
@@ -145,7 +131,7 @@ def get_post(id: int, db: Session = Depends(get_db)):
     if not retrieved_post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"No post with id {id} was found")
-    return {"post": retrieved_post}
+    return retrieved_post
 
 
 # deleting a post
@@ -156,19 +142,19 @@ def delete_post(id: int, db: Session = Depends(get_db)):
     # connection.commit()
     post = db.query(models.Post).filter(models.Post.id == id)  # saving it as a query
 
-    if post.first() is None:    # run the query and check if it exists
+    if post.first() is None:  # run the query and check if it exists
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {id} not found")
     # if post does exist
     post.delete(synchronize_session=False)  # this is to prevent any stale entries from update or delete to
-                                            # linger around until the session ends (after committing)
+    # linger around until the session ends (after committing)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # updating a post
-@app.put("/posts/{id}")
-def update_post(id: int, post: Post, db: Session = Depends(get_db)):
+@app.put("/posts/{id}", response_model=schemas.PostResponse)
+def update_post(id: int, post: schemas.PostCreate, db: Session = Depends(get_db)):
     # cursor.execute("""UPDATE fastapi_posts SET title=%s, content=%s, published=%s WHERE id=%s RETURNING *""",
     #                (post.title, post.content, post.published, str(id)))
     # updated_post = cursor.fetchone()
@@ -180,4 +166,4 @@ def update_post(id: int, post: Post, db: Session = Depends(get_db)):
                             detail=f"Post with id {id} not found")
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
-    return {"Updated post": post_query.first()}
+    return post_query.first()
