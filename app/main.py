@@ -11,18 +11,16 @@ from sqlalchemy.orm import Session
 # directory imports
 from .database import engine, get_db
 from . import models, schemas, utils
-from .routers import posts, users
+from .routers import posts, users, auth
+
+
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 # TODO:
 """
-What I did today:
-    1) Created hashing
-    2) Gave birth to utils.py
-    3) More user paths
-    4) Gave birth to routers directory
+
 """
 
 """
@@ -52,7 +50,7 @@ while True:
             host='localhost',
             database='fastapi',
             user='postgres',
-            password='aryan',
+            password=utils.verify_env("PASSWORD"),
             cursor_factory=RealDictCursor)
         cursor = connection.cursor()
         print("Database connection successful")
@@ -104,6 +102,7 @@ def get_posts():
 # routing paths
 app.include_router(posts.router)
 app.include_router(users.router)
+app.include_router(auth.router)
 
 
 # default path

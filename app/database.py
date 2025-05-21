@@ -2,18 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import URL
-
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-
-def verify_env(key: str) -> str:
-    value = os.getenv(key)
-    if value is None:
-        raise EnvironmentError(f"Missing environment variable: {key}")
-    return value
+from app.utils import verify_env
 
 
 url = URL.create(
