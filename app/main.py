@@ -18,7 +18,7 @@ from .routers import posts, users, auth
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# TODO:
+# TODO: keep adding JWT oauth2 token
 """
 
 """
