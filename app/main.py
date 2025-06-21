@@ -14,11 +14,10 @@ from . import models, schemas, utils
 from .routers import posts, users, auth
 
 
-
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# TODO: keep adding JWT oauth2 token
+# TODO: in users.py, handle the case where a user already exists
 """
 
 """

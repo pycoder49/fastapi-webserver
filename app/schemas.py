@@ -16,6 +16,7 @@ class PostCreate(PostBase):
 class PostResponse(PostBase):
     id: int
     created_at: datetime
+    owner_id: int
 
     # This tells pydantic to convert it even if the value passed is not a dictionary
     class Config:
