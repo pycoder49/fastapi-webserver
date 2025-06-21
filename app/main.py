@@ -17,7 +17,8 @@ from .routers import posts, users, auth
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# TODO: in users.py, handle the case where a user already exists
+# TODO: understand how to tell what user you are logged in with and then test actions like delete/update
+# TODO: to see if that logic works -- should not be allowed to delete/update other's posts
 """
 
 """
