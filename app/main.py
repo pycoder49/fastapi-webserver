@@ -1,12 +1,9 @@
 from random import randrange
 from typing import Optional, List
 from fastapi import FastAPI, Response, status, HTTPException, Depends
-from fastapi.params import Body
-from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
-from sqlalchemy.orm import Session
 
 # directory imports
 from .database import engine, get_db

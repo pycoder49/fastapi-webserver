@@ -1,7 +1,6 @@
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from . import schemas, database, models
-from dotenv import load_dotenv
 from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from .utils import verify_env
