@@ -86,23 +86,25 @@ def delete_post(id: int,
 # updating a post
 @router.put("/{id}", response_model=schemas.PostResponse)
 def update_post(id: int,
-                post: schemas.PostCreate, db: Session = Depends(get_db),
+                updated_post: schemas.PostCreate,
+                db: Session = Depends(get_db),
                 current_user: int = Depends(oauth2.get_current_user)):
     # cursor.execute("""UPDATE fastapi_posts SET title=%s, content=%s, published=%s WHERE id=%s RETURNING *""",
     #                (post.title, post.content, post.published, str(id)))
     # updated_post = cursor.fetchone()
     # connection.commit()
     post_query = db.query(models.Post).filter(models.Post.id == id)
-    db_post = post_query.first()
+    post = post_query.first()
 
     # checking the user is deleting his own post or someone else's
     if post.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="You're not the owner of this post")
 
-    if db_post is None:
+    if post is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail=f"Post with id {id} not found")
-    post_query.update(post.dict(), synchronize_session=False)
+
+    post_query.update(updated_post.dict(), synchronize_session=False)
     db.commit()
     return post_query.first()
