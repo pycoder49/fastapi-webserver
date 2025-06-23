@@ -1,24 +1,13 @@
-from random import randrange
-from typing import Optional, List
-from fastapi import FastAPI, Response, status, HTTPException, Depends
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import time
-
-# directory imports
-from .database import engine, get_db
-from . import models, schemas, utils
+from fastapi import FastAPI
+from .database import engine
+from . import models
 from .routers import posts, users, auth
 
 
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
-# TODO: understand how to tell what user you are logged in with and then test actions like delete/update
-# TODO: to see if that logic works -- should not be allowed to delete/update other's posts
-"""
-
-"""
+# TODO:
 
 """
 Bottom three lines of code are: path operations (FastAPI documentation) or route (other documentations)
@@ -39,52 +28,18 @@ Starting the webserver
 
     uvicorn <file name without .py>:<fast api object name> in the terminal
     uvicorn main:app --reload
-"""
-
-while True:
-    try:
-        connection = psycopg2.connect(
-            host='localhost',
-            database='fastapi',
-            user='postgres',
-            password=utils.verify_env("PASSWORD"),
-            cursor_factory=RealDictCursor)
-        cursor = connection.cursor()
-        print("Database connection successful")
-        break
-    except Exception as error:
-        print("Database connection failed")
-        print("Error: ", error)
-        time.sleep(2)
-
-# my_posts = [
-#     {
-#         "title": "post 1 title",
-#         "content": "post 1 content",
-#         "id": 1
-#     },
-#     {
-#         "title": "cotton candy",
-#         "content": "condy content",
-#         "id": 2
-#     }
-# ]
-
-"""
-Database name:  fastapi
-Table name:     fastapi_posts
+    
+    With package: uvicorn app.main:app --reload
 """
 
 """
 A view of how ORM differs from regular SQL in python code:
 
 @app.get("/sql")
-def test_posts(db: Session = Depends(get_deb)):
+def test_posts(db: Session = Depends(get_db)):
     posts = db.query(models.Post).all()
     return {"data": posts}
 
-
-# gets all posts
 @app.get("/posts")
 def get_posts():
     posts = cursor.execute(\"""SELECT * FROM fastapi_posts\""")
