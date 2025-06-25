@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 from . import schemas, database, models
 from fastapi import Depends, status, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from .utils import verify_env
 from sqlalchemy.orm import Session
+from .config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -12,9 +12,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 # Algorithm to use: hs256
 # expiration time of the toke
 
-SECRET_KEY = verify_env("SECRET_KEY")
-ALGORITHM = verify_env("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(verify_env("ACCESS_TOKEN_EXPIRE_MINUTES"))
+SECRET_KEY = settings.secret_key
+ALGORITHM = settings.algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 
 def create_token(data: dict):
