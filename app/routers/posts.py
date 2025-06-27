@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from .. import models, schemas, utils, oauth2
 from ..database import get_db
+from sqlalchemy import func
 
 router = APIRouter(
     prefix="/posts",
@@ -11,7 +12,8 @@ router = APIRouter(
 
 
 # gets all posts -- don't need "/posts" because of prefix was set above
-@router.get("/", response_model=List[schemas.PostResponse])
+# @router.get("/", response_model=List[schemas.PostResponse])
+@router.get("/")
 def get_posts(db: Session = Depends(get_db),
               limit: int = 10,      # for limiting the amount the posts returned
               skip: int = 0,        # for skipping (or offsetting) an amount of psots
@@ -23,12 +25,23 @@ def get_posts(db: Session = Depends(get_db),
     # limit here is a query parameter, and you can send it by adding a "?" at the end of the endpoint
     # /posts?limit=3
     # .offset(int) is for skipping the number of posts
-    query = db.query(models.Post)
 
-    if search:
-        query = query.filter(models.Post.title.contains(search))
+    # just returning all posts here ----------
+    # query = db.query(models.Post)
+    # if search:
+    #     query = query.filter(models.Post.title.contains(search))
 
-    return query.limit(limit).offset(skip).all()
+    # returning joint information
+    results_query = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).outerjoin(models.Vote).group_by(models.Post.id)
+    print(results_query)
+
+    return [
+        {
+            **post.__dict__,
+            "votes": votes
+        }
+        for post, votes in results_query.all()
+    ]
 
 
 # creates a new post

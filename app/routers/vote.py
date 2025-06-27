@@ -13,6 +13,12 @@ router = APIRouter(
 def vote(vote: schemas.Vote,
          db: Session = Depends(database.get_db),
          current_user: int = Depends(oauth2.get_current_user)):
+    # first we need to check for the existence of a post (and send a 404 if it doesn't exist
+    post = db.query(models.Post).filter(models.Post.id == vote.post_id).first()
+    if not post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail="The post you're trying to vote on does not exist")
+
     # first query to see if the vote already exists or not
     vote_query = db.query(models.Vote).filter(
         and_(
