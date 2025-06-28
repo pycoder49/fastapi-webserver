@@ -13,7 +13,7 @@ router = APIRouter(
 
 # gets all posts -- don't need "/posts" because of prefix was set above
 # @router.get("/", response_model=List[schemas.PostResponse])
-@router.get("/")
+@router.get("/", response_model=List[schemas.PostVote])
 def get_posts(db: Session = Depends(get_db),
               limit: int = 10,      # for limiting the amount the posts returned
               skip: int = 0,        # for skipping (or offsetting) an amount of psots
@@ -32,16 +32,12 @@ def get_posts(db: Session = Depends(get_db),
     #     query = query.filter(models.Post.title.contains(search))
 
     # returning joint information
-    results_query = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).outerjoin(models.Vote).group_by(models.Post.id)
-    print(results_query)
+    results_query = db.query(models.Post, func.count(models.Vote.post_id).label("votes")).join(
+        models.Vote, models.Vote.post_id == models.Post.id, isouter=True).group_by(models.Post.id)
 
-    return [
-        {
-            **post.__dict__,
-            "votes": votes
-        }
-        for post, votes in results_query.all()
-    ]
+    results = list(map(lambda x:x._mapping, results_query.all()))
+
+    return results
 
 
 # creates a new post
