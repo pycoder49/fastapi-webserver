@@ -46,10 +46,7 @@ class PostResponse(PostBase):
 
 class PostVote(BaseModel):
     Post: PostResponse
-    vote: int
-
-    class Config:
-        orm_mode = True
+    votes: int
 
 
 class Token(BaseModel):
